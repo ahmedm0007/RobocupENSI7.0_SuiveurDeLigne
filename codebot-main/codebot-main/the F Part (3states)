@@ -1,0 +1,145 @@
+
+//macros 
+# define M A2 //midsensor
+# define L A3 //left sensor
+# define R A1 //right sensor
+# define LL A4 //extreme left sensor
+# define RR A0 // extreme right sensor
+# define ER 5 //echo right ultrason
+# define EF 3 //echo front ultrason
+# define TR 4  //trigger right ultrason
+# define TF 2  //trigger front ultrason
+# define LED_1 A5
+# define LED_2 13
+# define LED_3 0
+#define MR1 8  //right motor forward 
+#define MR2 7  //right motor backward 
+#define MRS 11  //right motor speed
+#define ML1 9 //left motor forward 
+#define ML2 10 //right motor backward 
+#define MLS 6 //left motor speed
+// Variables
+unsigned long currentTime;
+unsigned long previousTime;
+int L_Value, M_Value, R_Value,LL_Value,RR_Value;//for sensors values 
+//for PID
+int error=0, lastError=0, totalError=0;
+double correction=0;
+int leftSpeed, rightSpeed;
+void setup() 
+{
+  pinMode (MR1 ,OUTPUT);
+  pinMode (MR2 ,OUTPUT);
+  pinMode (MRS,OUTPUT);
+  pinMode (ML1 ,OUTPUT);
+  pinMode (ML2,OUTPUT);
+  pinMode (MLS,OUTPUT);
+  pinMode (M ,INPUT);
+  pinMode (L,INPUT);
+  pinMode (R,INPUT);
+  pinMode (LL,INPUT);
+  pinMode (RR,INPUT);
+  pinMode (ER,INPUT);
+  pinMode (EF,INPUT);
+  pinMode (TR,OUTPUT);
+  pinMode (TF,OUTPUT);
+  pinMode (LED_1,OUTPUT);
+  pinMode (LED_2,OUTPUT);
+  pinMode (LED_3,OUTPUT);
+ Serial.begin(1200);
+}
+//fuctions 
+void rotate_motor_backward(int pin1,int pin2,int pin_PWM,int U)
+{
+  digitalWrite(pin1,LOW);
+  digitalWrite(pin2,HIGH);
+  analogWrite(pin_PWM,255*0.01*U);//pourcentage
+}
+void rotate_motor_forward(int pin1,int pin2,int pin_PWM,int U)
+{
+  digitalWrite(pin1,HIGH);
+  digitalWrite(pin2,LOW);
+  analogWrite(pin_PWM,255*0.01*U);//pourcentage
+}
+void readIR()
+{
+  L_Value = digitalRead(L);  
+  M_Value = digitalRead(M);
+  R_Value = digitalRead(R);  
+  LL_Value = digitalRead(L); 
+  RR_Value = digitalRead(RR);
+}
+
+void Bot_idle3()
+{
+  rotate_motor_forward(MR1,MR2,MRS,1.056*rightSpeed);
+  rotate_motor_forward(ML1,ML2,MLS,leftSpeed);
+}//condition de passage to the other state in loop ()
+
+int ir3()
+{
+  return(100*L_Value + 10*M_Value+R_Value);
+}
+void PIDwhite(double KP,double KI,double KD) 
+{ 
+  switch (ir3())
+  {
+    case 111 :
+         error=lastError;
+         break;
+    case 110:
+         error=-2;
+         break;
+    case 101:
+         error=0;
+         break;
+    case 100:
+         error=-1;
+         break;
+    case 011:
+         error=2;
+         break;
+    case 001:
+         error=1;
+         break;
+    } 
+  totalError += error; // Compute PID correction
+  correction= KP * error + KD * (error - lastError) + KI * totalError;//calculate correction
+  lastError = error;// Save current error for next iteration
+  // Calculate motor speeds
+  leftSpeed = 100 - correction;
+  rightSpeed = 100 + correction;
+  // Constrain motor speeds to 0-255 range
+  leftSpeed = constrain(leftSpeed, 0, 255);
+  rightSpeed = constrain(rightSpeed, 0, 255);
+  rotate_motor_forward(MR1,MR2,MRS,1.056*rightSpeed);
+  rotate_motor_forward(ML1,ML2,MLS,leftSpeed);
+}
+void WhiteFollower1()
+{
+  readIR();
+  PIDwhite(50,0,0);
+}
+//codition passage wf1 to Y : RR=0
+void Y()
+{
+  rotate_motor_forward(MR1,MR2,MRS,1.056*20);
+  rotate_motor_forward(ML1,ML2,MLS,100);
+  readIR();
+} 
+//condition Y to 2() : RR=1 & LL=1
+void WhiteFollower2()
+{
+  readIR();
+  PIDwhite(50,0,0);
+}
+// condition out  RR=0 & LL=0 
+void loop() 
+{
+  currentTime = millis();
+  if (currentTime - previousTime >= 5) 
+  { 
+    
+    previousTime = currentTime;
+  }
+}
